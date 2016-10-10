@@ -1,0 +1,202 @@
+<project name="Spnego" default="start.complete">
+
+  <!-- 
+    ***************************************************************** 
+  	* information   
+  	***************************************************************** 
+  	-->
+
+  <description>SPNEGO Authentication</description>
+
+  <!-- 
+  	***************************************************************** 
+  	* global properties   
+  	***************************************************************** 
+  	-->
+
+  <property name="product.name" value="spnego" />
+
+  <property name="jar.name" value="${product.name}.jar" />
+  <property name="jar.name.app" value="${product.name}_app.jar" />
+  <property name="jar.name.analyzer" value="analyzer.jar" />
+	
+  <property name="jar.version" value="r7p1" />
+
+  <!-- 
+  	***************************************************************** 
+  	* general properties   
+  	***************************************************************** 
+  	-->
+
+  <property name="build" location="${basedir}/build" />
+  <property name="buildnumber" location="${build}/buildnumber" />
+  <property name="temp" location="${build}/temp" />
+
+  <property name="src" location="${basedir}/src" />
+  <property name="libs" location="${basedir}/lib" />
+  <property name="classes" location="${temp}/classes" />
+
+  <property name="install" location="${build}/install" />
+  <property name="javadoc" location="${install}/doc" />
+
+  <!-- 
+  	***************************************************************** 
+  	* external taskdefinitions   
+  	***************************************************************** 
+  	-->
+
+  <taskdef resource="net/sf/antcontrib/antlib.xml" classpath="${build}/ant-contrib.jar" />
+ 
+  <taskdef name="buildnr" classname="com.sibvisions.addons.ant.AntBuildNumber" classpath="${buildnumber}/addons.jar" />
+  <typedef name="canreach" classname="com.sibvisions.addons.ant.CanReach" classpath="${buildnumber}/addons.jar" />
+  
+  <!-- 
+  	***************************************************************** 
+  	* logging   
+  	***************************************************************** 
+  	-->
+
+  <record name="${build}/build.log" />
+
+  <!-- 
+  	***************************************************************** 
+  	* INTERNAL TASKS   
+  	***************************************************************** 
+  	-->
+
+  <!--
+    * setup tasks
+    -->  
+  
+  <target name="proxy.check">
+
+    <if>
+      <istrue value="true" />
+      <then>
+	    <condition property="proxy.enabled">
+	      <and>
+	        <canreach host="10.0.0.1" port="3128"/>
+	      </and>
+	    </condition>
+      </then>
+    </if>
+    
+  </target>
+
+  <target name="proxy" depends="proxy.check" if="proxy.enabled">
+    <echo>PROXY = ${proxy.enabled}</echo>
+    <property name="proxy.host" value="10.0.0.1"/>
+    <property name="proxy.port" value="3128"/>
+    <property name="proxy.user" value=""/>
+    <property name="proxy.pass" value=""/>
+
+    <setproxy proxyhost="${proxy.host}" proxyport="${proxy.port}" proxyuser="${proxy.user}" proxypassword="${proxy.password}"/>
+  </target>
+  
+  <!-- 
+	* cleanup tasks 
+	-->
+
+  <target name="clean.start">
+    <delete dir="${temp}" />
+    <delete dir="${install}" />
+  </target>
+
+  <target name="clean.stop">
+    <delete dir="${temp}" />
+  </target>
+
+  <!-- 
+	* compile, build tasks 
+	-->
+
+  <target name="build">
+
+    <delete dir="${classes}" />
+    <mkdir dir="${classes}" />
+
+    <!-- compile the java code -->
+    <javac srcdir="${src}" destdir="${classes}" debug="off" deprecation="on" source="1.5" target="1.5" encoding="ISO-8859-1">
+      <classpath>
+        <fileset dir="${libs}">
+          <include name="*.jar" />
+        </fileset>
+      </classpath>
+    </javac>
+
+    <!-- copy ressource files -->
+    <copy todir="${classes}">
+      <fileset dir="${src}">
+        <include name="**/*" />
+        <exclude name="**/*.java" />
+        <exclude name="**/package.html" />
+      </fileset>
+    </copy>
+
+    <mkdir dir="${install}" />
+
+	<!-- buildnumber -->
+    
+    <buildnr buildfile="${buildnumber}/buildnr.properties" version="${jar.version}" name="SPNEGO Authentication"/> 
+    
+    <!-- create the standard addon jar file -->
+    <jar jarfile="${install}/${jar.name}">
+	  <manifest>
+        <attribute name="Implementation-Title" value="${build.versionstring}"/>
+        <attribute name="Implementation-Version" value="b${build.number} ${build.date}"/> 
+        <attribute name="Implementation-Vendor" value="SIB Visions GmbH"/>
+      </manifest>
+      
+      <fileset dir="${classes}" />
+    </jar>
+
+  </target>
+  
+  <!-- 
+	* quality tasks 
+	-->
+
+  <target name="javadoc" depends="proxy">
+
+    <delete dir="${javadoc}" />
+
+	<!-- buildnumber -->
+    <buildnr buildfile="${buildnumber}/buildnr.properties" loadOnly="true"/> 
+
+    <javadoc packagenames="*" 
+      		 sourcepath="${src}" 
+      		 defaultexcludes="yes" 
+             destdir="${javadoc}" 
+             author="false" 
+             version="false" 
+             use="true" 
+             windowtitle="SPNEGO Authentication (ver. ${build.version})"
+             source="1.5" 
+             encoding="ISO-8859-1">
+      <arg value="-J-Dhttp.proxyHost=${proxy.host}"/>
+      <arg value="-J-Dhttp.proxyPort=${proxy.port}"/>
+      <arg value="-J-Dhttp.proxyUser=${proxy.user}"/>
+      <arg value="-J-Dhttp.proxyPassword=${proxy.password}"/>
+      <classpath>
+        <fileset dir="${libs}">
+          <include name="**/*.jar" />
+        </fileset>
+      </classpath>
+      <doctitle>
+        <![CDATA[<h1>SPNEGO Authentication (ver. ${build.version})</h1>]]>
+      </doctitle>
+      <bottom><![CDATA[<i>Copyright &#169; 2016 SIB Visions GmbH. All Rights Reserved.</i>]]></bottom>
+	  <link href="http://java.sun.com/j2se/1.5.0/docs/api"/>
+    </javadoc>
+
+  </target>
+  
+  <!-- 
+  	***************************************************************** 
+  	* PUBLIC START TASKS   
+  	***************************************************************** 
+  	-->
+
+  <target name="start.complete" depends="clean.start, build, javadoc, clean.stop" description="Creates the release library" />
+
+</project>
