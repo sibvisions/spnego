@@ -55,13 +55,26 @@ public final class SpnegoPrincipal implements Principal {
     }
     
     /**
-     * Constructs a SpnegoPrincipal from the provided String input 
+     * Constructs a SpnegoPrincipal from the provided String kerberos principal
      * and name type input.
      * 
      * @param name the principal name
      * @param nameType the name type of the principal
      */
-    public SpnegoPrincipal(final String name, final int nameType) {
+    public SpnegoPrincipal(final KerberosPrincipal kerberosPrincipal, final int nameType) {
+        this.kerberosPrincipal = kerberosPrincipal;
+        this.delegatedCred = null;
+    }
+
+    /**
+     * Constructs a SpnegoPrincipal from the provided String input
+     * and name type input.
+     * 
+     * @param name the principal name
+     * @param nameType the name type of the principal
+     */
+    public SpnegoPrincipal(final String name, final int nameType)
+    {
         this.kerberosPrincipal = new KerberosPrincipal(name, nameType);
         this.delegatedCred = null;
     }

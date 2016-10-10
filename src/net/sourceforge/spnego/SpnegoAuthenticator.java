@@ -21,6 +21,7 @@ package net.sourceforge.spnego;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.security.Principal;
 import java.security.PrivilegedActionException;
 import java.util.Collections;
 import java.util.Enumeration;
@@ -220,7 +221,7 @@ public final class SpnegoAuthenticator {
                 return map.get(param);
             }
 
-            @SuppressWarnings("rawtypes")
+            @SuppressWarnings({ "rawtypes" })
             @Override
             public Enumeration getInitParameterNames() {
                 throw new UnsupportedOperationException();
@@ -376,12 +377,24 @@ public final class SpnegoAuthenticator {
 
             // validate username/password by login/logout  
             cntxt.login();
-            cntxt.logout();
-
-            principal = new SpnegoPrincipal(username + '@' 
-                    + this.serverPrincipal.getRealm()
-                    , KerberosPrincipal.KRB_NT_PRINCIPAL);
-
+            
+            try {
+                for (Principal cntxPrincipal : cntxt.getSubject().getPrincipals()) {
+                    if (cntxPrincipal instanceof KerberosPrincipal) {
+                        principal = new SpnegoPrincipal((KerberosPrincipal)cntxPrincipal, KerberosPrincipal.KRB_NT_PRINCIPAL);
+                        break;
+                    }
+                }
+                
+                if (principal == null) {
+                    principal = new SpnegoPrincipal(username, KerberosPrincipal.KRB_NT_PRINCIPAL);
+                    //principal = new SpnegoPrincipal(username + '@' + this.serverPrincipal.getRealm(), KerberosPrincipal.KRB_NT_PRINCIPAL);
+                }
+            }
+            finally
+            {
+                cntxt.logout();
+            }
         } catch (LoginException le) {
             LOGGER.info(le.getMessage() + ": Login failed. username=" + username 
                     + "; password.hashCode()=" + password.hashCode());
