@@ -33,6 +33,7 @@ import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
 
 import org.ietf.jgss.GSSException;
 
@@ -179,10 +180,12 @@ import org.ietf.jgss.GSSException;
  * @author Darwin V. Felix
  * 
  */
-public final class SpnegoHttpFilter implements Filter {
+public class SpnegoHttpFilter implements Filter {
 
     private static final Logger LOGGER = Logger.getLogger(Constants.LOGGER_NAME);
 
+    private static final String ATTRIB_PRINCIPAL = "SpnegoPrincipal";
+    
     /** Object for performing Basic and SPNEGO authentication. */
     private transient SpnegoAuthenticator authenticator = null;
 
@@ -220,31 +223,45 @@ public final class SpnegoHttpFilter implements Filter {
         , final FilterChain chain) throws IOException, ServletException {
 
         final HttpServletRequest httpRequest = (HttpServletRequest) request;
-        final SpnegoHttpServletResponse spnegoResponse = new SpnegoHttpServletResponse(
-                (HttpServletResponse) response);
+        
+        HttpSession session = httpRequest.getSession(false);
 
-        // client/caller principal
-        final SpnegoPrincipal principal;
-        try {
-            principal = this.authenticator.authenticate(httpRequest, spnegoResponse);
-        } catch (GSSException gsse) {
-            LOGGER.severe("HTTP Authorization Header="
-                + httpRequest.getHeader(Constants.AUTHZ_HEADER));
-            throw new ServletException(gsse);
+        SpnegoPrincipal principal = null;
+        
+        if (session != null)
+        {
+            principal = (SpnegoPrincipal)session.getAttribute(ATTRIB_PRINCIPAL);
         }
-
-        // context/auth loop not yet complete
-        if (spnegoResponse.isStatusSet()) {
-            return;
+        
+        if (principal == null)
+        {
+            final SpnegoHttpServletResponse spnegoResponse = new SpnegoHttpServletResponse(
+                    (HttpServletResponse) response);
+    
+            // client/caller principal
+            try {
+                principal = this.authenticator.authenticate(httpRequest, spnegoResponse);
+                
+                httpRequest.getSession(true).setAttribute(ATTRIB_PRINCIPAL, principal);
+            } catch (GSSException gsse) {
+                LOGGER.severe("HTTP Authorization Header="
+                    + httpRequest.getHeader(Constants.AUTHZ_HEADER));
+                throw new ServletException(gsse);
+            }
+    
+            // context/auth loop not yet complete
+            if (spnegoResponse.isStatusSet()) {
+                return;
+            }
+    
+            // assert
+            if (null == principal) {
+                LOGGER.severe("Principal was null.");
+                spnegoResponse.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, true);
+                return;
+            }
         }
-
-        // assert
-        if (null == principal) {
-            LOGGER.severe("Principal was null.");
-            spnegoResponse.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, true);
-            return;
-        }
-
+        
         LOGGER.fine("principal=" + principal);
 
         chain.doFilter(new SpnegoHttpServletRequest(httpRequest, principal), response);
