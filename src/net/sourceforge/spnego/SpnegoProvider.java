@@ -106,7 +106,7 @@ public final class SpnegoProvider {
     static SpnegoAuthScheme negotiate(
         final HttpServletRequest req, final SpnegoHttpServletResponse resp
         , final boolean basicSupported, final boolean promptIfNtlm
-        , final String realm) throws IOException {
+        , final String realm, final boolean bypassAuthentication) throws IOException {
 
         final SpnegoAuthScheme scheme = SpnegoProvider.getAuthScheme(
                 req.getHeader(Constants.AUTHZ_HEADER));
@@ -130,16 +130,21 @@ public final class SpnegoProvider {
         
         // assert
         if (scheme.isNtlmToken()) {
-            LOGGER.warning("Downgrade NTLM request to Basic Auth.");
-
             if (resp.isStatusSet()) {
                 throw new IllegalStateException("HTTP Status already set.");
             }
 
             if (basicSupported && promptIfNtlm) {
+                LOGGER.warning("Downgrade NTLM request to Basic Auth.");
                 resp.setHeader(Constants.AUTHN_HEADER,
                         Constants.BASIC_HEADER + " realm=\"" + realm + '\"');
             } else {
+                
+                if (bypassAuthentication)
+                {
+                    return null;
+                }
+                
                 // TODO : decode/decrypt NTLM token and return a new SpnegoAuthScheme
                 // of type "Basic" where the token value is a base64 encoded
                 // username + ":" + password string

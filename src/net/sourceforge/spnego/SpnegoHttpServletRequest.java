@@ -103,8 +103,7 @@ final class SpnegoHttpServletRequest extends HttpServletRequestWrapper
             return super.getRemoteUser();
             
         } else {
-            final String[] username = this.principal.getName().split("@", 2);
-            return username[0];
+            return principal.getUserName();
         }
     }
     

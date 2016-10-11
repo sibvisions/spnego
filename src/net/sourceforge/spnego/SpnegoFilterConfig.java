@@ -88,6 +88,9 @@ final class SpnegoFilterConfig { // NOPMD
     /** name of the client login module. */
     private transient String clientLoginModule = null;
     
+    /** true if authentication failures won't cancel the request. */
+    private transient boolean bypassAuthentication = false;
+    
     /** password to domain account. */
     private transient String password = null;
     
@@ -150,6 +153,8 @@ final class SpnegoFilterConfig { // NOPMD
         
         // determine if we should Basic Auth prompt if rec. NTLM token
         setNtlmSupport(config.getInitParameter(Constants.PROMPT_NTLM));
+        
+        setBypassAuthentication(config.getInitParameter(Constants.BYPASS_AUTHENTICATION));
         
         // requests from localhost will not be authenticated against the KDC 
         if (null != config.getInitParameter(Constants.ALLOW_LOCALHOST)) {
@@ -354,6 +359,16 @@ final class SpnegoFilterConfig { // NOPMD
         return this.allowUnsecure;
     }
     
+    /**
+     * Returns true if invalid authentication shouldn't cancel the request.
+     * 
+     * @return true if invalid authentication shouldn't cancel the request
+     */
+    boolean isBypassAuthentication()
+    {
+        return this.bypassAuthentication;
+    }
+    
     private boolean loginConfExists(final String loginconf) 
         throws FileNotFoundException, URISyntaxException {
 
@@ -531,6 +546,20 @@ final class SpnegoFilterConfig { // NOPMD
     boolean useKeyTab() {
         return (this.canUseKeyTab && this.username.isEmpty() && this.password.isEmpty());
     }
+    
+    /**
+     * Should it be possible to continue without valid authentication.
+     * 
+     * @param bypassAuthentication true/false
+     */
+    private void setBypassAuthentication(final String bypassAuthentication) {
+        if (null == bypassAuthentication) {
+            throw new IllegalArgumentException(
+                    SpnegoFilterConfig.MISSING_PROPERTY + Constants.BYPASS_AUTHENTICATION);
+        }
+        
+        this.bypassAuthentication = Boolean.parseBoolean(bypassAuthentication);
+    }    
 
     
     @Override

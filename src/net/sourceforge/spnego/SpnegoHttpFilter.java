@@ -185,6 +185,7 @@ public class SpnegoHttpFilter implements Filter {
     private static final Logger LOGGER = Logger.getLogger(Constants.LOGGER_NAME);
 
     private static final String ATTRIB_PRINCIPAL = "SpnegoPrincipal";
+    private static final String ATTRIB_BYPASS = "SpnegoBypassAuthentication";
     
     /** Object for performing Basic and SPNEGO authentication. */
     private transient SpnegoAuthenticator authenticator = null;
@@ -223,6 +224,8 @@ public class SpnegoHttpFilter implements Filter {
         , final FilterChain chain) throws IOException, ServletException {
 
         final HttpServletRequest httpRequest = (HttpServletRequest) request;
+
+        boolean bypass = authenticator.getConfig().isBypassAuthentication();        
         
         HttpSession session = httpRequest.getSession(false);
 
@@ -230,6 +233,13 @@ public class SpnegoHttpFilter implements Filter {
         
         if (session != null)
         {
+            if (bypass && Boolean.TRUE == session.getAttribute(ATTRIB_BYPASS))
+            {
+                chain.doFilter(request, response);
+                
+                return;
+            }
+            
             principal = (SpnegoPrincipal)session.getAttribute(ATTRIB_PRINCIPAL);
         }
         
@@ -253,11 +263,22 @@ public class SpnegoHttpFilter implements Filter {
     
             // context/auth loop not yet complete
             if (spnegoResponse.isStatusSet()) {
+                //shows an empty page, if browser doesn't send another request!
                 return;
             }
     
             // assert
             if (null == principal) {
+                if (bypass) {
+                    LOGGER.fine("Bypass authentication");
+
+                    session.setAttribute(ATTRIB_BYPASS, Boolean.TRUE);
+                    
+                    chain.doFilter(request, response);
+                
+                    return;
+                }
+                
                 LOGGER.severe("Principal was null.");
                 spnegoResponse.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, true);
                 return;
@@ -390,14 +411,14 @@ public class SpnegoHttpFilter implements Filter {
          * </pre>
          * 
          */
-        static final String LOGGER_LEVEL = "spnego.logger.level";
+        public static final String LOGGER_LEVEL = "spnego.logger.level";
         
         /**
          * Name of Spnego Logger.
          * 
          * <p>Example: <code>Logger.getLogger(Constants.LOGGER_NAME)</code></p>
          */
-        static final String LOGGER_NAME = "SpnegoHttpFilter"; 
+        public static final String LOGGER_NAME = "SpnegoHttpFilter"; 
         
         /** 
          * Servlet init param name in web.xml <b>spnego.login.conf</b>. 
@@ -448,5 +469,12 @@ public class SpnegoHttpFilter implements Filter {
          * <p>The LoginModule name that exists in the login.conf file.</p>
          */
         public static final String SERVER_MODULE = "spnego.login.server.module";
+        
+        /**
+         * Servlet init param name in web.xml <b>spnego.bypass</b>.
+         * 
+         * If authentication fails, the filter will continue without authentication.
+         */
+        public static final String BYPASS_AUTHENTICATION = "spnego.bypass";
     }
 }

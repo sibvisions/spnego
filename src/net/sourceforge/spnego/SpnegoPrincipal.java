@@ -125,6 +125,16 @@ public final class SpnegoPrincipal implements Principal {
     public String getRealm() {
         return this.kerberosPrincipal.getRealm();
     }
+
+    /**
+     * Returns the user name of this Kerberos principal.
+     * 
+     * @return the user name
+     */
+    public String getUserName()
+    {
+        return getName().split("@", 2)[0];
+    }
     
     @Override
     public int hashCode() {

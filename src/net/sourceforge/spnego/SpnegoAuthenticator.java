@@ -102,6 +102,9 @@ public final class SpnegoAuthenticator {
     /** Default GSSManager. */
     private static final GSSManager MANAGER = GSSManager.getInstance();
     
+    /** the configuration. */
+    private final transient SpnegoFilterConfig config;
+    
     /** Flag to indicate if BASIC Auth is allowed. */
     private final transient boolean allowBasic;
     
@@ -116,6 +119,9 @@ public final class SpnegoAuthenticator {
     
     /** Flag to indicate if NTLM is accepted. */
     private final transient boolean promptIfNtlm;
+
+    /** Flag to indicate if authentication failure shouldn't cancel the request. */
+    private final transient boolean bypassAuthentication;
 
     /** Login Context module name for client auth. */
     private final transient String clientModuleName;
@@ -142,12 +148,15 @@ public final class SpnegoAuthenticator {
 
         LOGGER.fine("config=" + config);
 
+        this.config = config;
+        
         this.allowBasic = config.isBasicAllowed();
         this.allowUnsecure = config.isUnsecureAllowed();  
         this.clientModuleName = config.getClientLoginModule();
         this.allowLocalhost = config.isLocalhostAllowed();
         this.promptIfNtlm = config.downgradeNtlm();
         this.allowDelegation = config.isDelegationAllowed();
+        this.bypassAuthentication = config.isBypassAuthentication();
 
         if (config.useKeyTab()) {
             this.loginContext = new LoginContext(config.getServerLoginModule());
@@ -270,7 +279,7 @@ public final class SpnegoAuthenticator {
         
         final SpnegoPrincipal principal;
         final SpnegoAuthScheme scheme = SpnegoProvider.negotiate(
-                req, resp, basicSupported, this.promptIfNtlm, serverRealm);
+                req, resp, basicSupported, this.promptIfNtlm, serverRealm, bypassAuthentication);
         
         // NOTE: this may also occur if we do not allow Basic Auth and
         // the client only supports Basic Auth
@@ -502,5 +511,15 @@ public final class SpnegoAuthenticator {
     private boolean isLocalhost(final HttpServletRequest req) {
         
         return req.getLocalAddr().equals(req.getRemoteAddr());
+    }
+    
+    /**
+     * Returns the configuration.
+     * 
+     * @return the configuration
+     */
+    SpnegoFilterConfig getConfig()
+    {
+        return config;
     }
 }
