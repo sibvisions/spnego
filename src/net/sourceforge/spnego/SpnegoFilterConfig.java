@@ -554,11 +554,12 @@ final class SpnegoFilterConfig { // NOPMD
      */
     private void setBypassAuthentication(final String bypassAuthentication) {
         if (null == bypassAuthentication) {
-            throw new IllegalArgumentException(
-                    SpnegoFilterConfig.MISSING_PROPERTY + Constants.BYPASS_AUTHENTICATION);
+            this.bypassAuthentication = false;
         }
-        
-        this.bypassAuthentication = Boolean.parseBoolean(bypassAuthentication);
+        else
+        {
+            this.bypassAuthentication = Boolean.parseBoolean(bypassAuthentication);
+        }
     }    
 
     
