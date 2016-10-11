@@ -68,20 +68,18 @@ final class SpnegoHttpServletRequest extends HttpServletRequestWrapper
     @Override
     public String getAuthType() {
         
-        final String authType;
-        final String header = this.getHeader(Constants.AUTHZ_HEADER);
+        String header = this.getHeader(Constants.AUTHZ_HEADER);
         
-        if (header.startsWith(Constants.NEGOTIATE_HEADER)) {
-            authType = Constants.NEGOTIATE_HEADER;
-            
-        } else if (header.startsWith(Constants.BASIC_HEADER)) {
-            authType = Constants.BASIC_HEADER;
-            
-        } else {
-            authType = super.getAuthType();
+        if (header != null) {
+            if (header.startsWith(Constants.NEGOTIATE_HEADER)) {
+                return Constants.NEGOTIATE_HEADER;
+                
+            } else if (header.startsWith(Constants.BASIC_HEADER)) {
+                return Constants.BASIC_HEADER;
+            }
         }
         
-        return authType;
+        return super.getAuthType();
     }
     
     /**

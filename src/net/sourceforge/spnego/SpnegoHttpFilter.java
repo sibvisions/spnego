@@ -235,6 +235,8 @@ public class SpnegoHttpFilter implements Filter {
         
         if (principal == null)
         {
+            session = httpRequest.getSession(true);
+            
             final SpnegoHttpServletResponse spnegoResponse = new SpnegoHttpServletResponse(
                     (HttpServletResponse) response);
     
@@ -242,7 +244,7 @@ public class SpnegoHttpFilter implements Filter {
             try {
                 principal = this.authenticator.authenticate(httpRequest, spnegoResponse);
                 
-                httpRequest.getSession(true).setAttribute(ATTRIB_PRINCIPAL, principal);
+                session.setAttribute(ATTRIB_PRINCIPAL, principal);
             } catch (GSSException gsse) {
                 LOGGER.severe("HTTP Authorization Header="
                     + httpRequest.getHeader(Constants.AUTHZ_HEADER));
