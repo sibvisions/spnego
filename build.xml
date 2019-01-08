@@ -20,7 +20,7 @@
   <property name="jar.name.app" value="${product.name}_app.jar" />
   <property name="jar.name.analyzer" value="analyzer.jar" />
 	
-  <property name="jar.version" value="r7p1" />
+  <property name="jar.version" value="r9p1" />
 
   <!-- 
   	***************************************************************** 
@@ -116,7 +116,7 @@
     <mkdir dir="${classes}" />
 
     <!-- compile the java code -->
-    <javac srcdir="${src}" destdir="${classes}" debug="off" deprecation="on" source="1.5" target="1.5" encoding="ISO-8859-1">
+    <javac srcdir="${src}" destdir="${classes}" debug="on" deprecation="on" source="1.5" target="1.5" encoding="ISO-8859-1">
       <classpath>
         <fileset dir="${libs}">
           <include name="*.jar" />

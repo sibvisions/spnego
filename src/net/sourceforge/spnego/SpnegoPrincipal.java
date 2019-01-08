@@ -65,16 +65,15 @@ public final class SpnegoPrincipal implements Principal {
         this.kerberosPrincipal = kerberosPrincipal;
         this.delegatedCred = null;
     }
-
+    
     /**
-     * Constructs a SpnegoPrincipal from the provided String input
+     * Constructs a SpnegoPrincipal from the provided String input 
      * and name type input.
      * 
      * @param name the principal name
      * @param nameType the name type of the principal
      */
-    public SpnegoPrincipal(final String name, final int nameType)
-    {
+    public SpnegoPrincipal(final String name, final int nameType) {
         this.kerberosPrincipal = new KerberosPrincipal(name, nameType);
         this.delegatedCred = null;
     }
@@ -125,7 +124,7 @@ public final class SpnegoPrincipal implements Principal {
     public String getRealm() {
         return this.kerberosPrincipal.getRealm();
     }
-
+    
     /**
      * Returns the user name of this Kerberos principal.
      * 
@@ -138,7 +137,31 @@ public final class SpnegoPrincipal implements Principal {
     
     @Override
     public int hashCode() {
-        return this.kerberosPrincipal.hashCode();
+        int result = 31;
+        result = 31 * result + this.kerberosPrincipal.hashCode();
+        result = 31 * result + this.delegatedCred.hashCode();
+        
+        return result;
+    }
+    
+    @Override
+    public boolean equals(final Object object) {
+        if (object == this) {
+            return true;
+        }
+        
+        if (!(object instanceof SpnegoPrincipal)) {
+            return false;
+        }
+        
+        final SpnegoPrincipal obj = (SpnegoPrincipal) object;
+        if (!this.kerberosPrincipal.equals(obj.kerberosPrincipal)
+                || !this.delegatedCred.equals(obj.delegatedCred)) {
+            
+            return false;
+        }
+        
+        return this.hashCode() == obj.hashCode();
     }
     
     @Override

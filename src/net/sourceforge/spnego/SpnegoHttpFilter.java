@@ -22,6 +22,10 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.security.PrivilegedActionException;
+import java.util.ArrayList;
+import java.util.Enumeration;
+import java.util.List;
+import java.util.Properties;
 import java.util.logging.Logger;
 
 import javax.security.auth.login.LoginException;
@@ -188,18 +192,47 @@ public class SpnegoHttpFilter implements Filter {
     private static final String ATTRIB_BYPASS = "SpnegoBypassAuthentication";
     
     /** Object for performing Basic and SPNEGO authentication. */
-    private transient SpnegoAuthenticator authenticator = null;
-
+    private transient SpnegoAuthenticator authenticator;
+    
+    /** Object for performing User Authorization. */
+    private transient UserAccessControl accessControl;
+    
+    /** AuthZ required for every page. */
+    private transient String sitewide;
+    
+    /** Landing page if user is denied authZ access. */
+    private transient String page403;
+    
+    /** directories which should not be authenticated irrespective of filter-mapping. */
+    private final transient List<String> excludeDirs = new ArrayList<String>();
+    
+    @Override
     public void init(final FilterConfig filterConfig) throws ServletException {
 
         try {
             // set some System properties
             final SpnegoFilterConfig config = SpnegoFilterConfig.getInstance(filterConfig);
+            this.excludeDirs.addAll(config.getExcludeDirs());
+            
+            LOGGER.info("excludeDirs=" + this.excludeDirs);
             
             // pre-authenticate
             this.authenticator = new SpnegoAuthenticator(config);
-        } catch (final LoginException le) {
-            throw new ServletException(le);
+            
+            // authorization
+            final Properties props = SpnegoHttpFilter.toProperties(filterConfig);
+            if (!props.getProperty("spnego.authz.class", "").isEmpty()) {
+                props.put("spnego.server.realm", this.authenticator.getServerRealm());
+                this.page403 = props.getProperty("spnego.authz.403", "").trim();
+                this.sitewide = props.getProperty("spnego.authz.sitewide", "").trim();
+                this.sitewide = (this.sitewide.isEmpty()) ? null : this.sitewide;
+                this.accessControl = (UserAccessControl) Class.forName(
+                        props.getProperty("spnego.authz.class")).newInstance();
+                this.accessControl.init(props);                
+            }
+            
+        } catch (final LoginException lex) {
+            throw new ServletException(lex);
         } catch (final GSSException gsse) {
             throw new ServletException(gsse);
         } catch (final PrivilegedActionException pae) {
@@ -208,11 +241,26 @@ public class SpnegoHttpFilter implements Filter {
             throw new ServletException(fnfe);
         } catch (final URISyntaxException uri) {
             throw new ServletException(uri);
+        } catch (InstantiationException iex) {
+            throw new ServletException(iex);
+        } catch (IllegalAccessException iae) {
+            throw new ServletException(iae);
+        } catch (ClassNotFoundException cnfe) {
+            throw new ServletException(cnfe);
         }
     }
 
     @Override
     public void destroy() {
+        this.page403 = null;
+        this.sitewide = null;
+        if (null != this.excludeDirs) {
+            this.excludeDirs.clear();
+        }
+        if (null != this.accessControl) {
+            this.accessControl.destroy();
+            this.accessControl = null;
+        }
         if (null != this.authenticator) {
             this.authenticator.dispose();
             this.authenticator = null;
@@ -224,11 +272,17 @@ public class SpnegoHttpFilter implements Filter {
         , final FilterChain chain) throws IOException, ServletException {
 
         final HttpServletRequest httpRequest = (HttpServletRequest) request;
+        
+        // skip authentication if resource is in the list of directories to exclude
+        if (exclude(httpRequest.getContextPath(), httpRequest.getServletPath())) {
+            chain.doFilter(request, response);
+            return;
+        }
 
-        boolean bypass = authenticator.getConfig().isBypassAuthentication();        
+        boolean bypass = authenticator.getConfig().isBypassAuthentication();
         
         HttpSession session = httpRequest.getSession(false);
-
+        
         SpnegoPrincipal principal = null;
         
         if (session != null)
@@ -236,21 +290,20 @@ public class SpnegoHttpFilter implements Filter {
             if (bypass && Boolean.TRUE == session.getAttribute(ATTRIB_BYPASS))
             {
                 chain.doFilter(request, response);
-                
+
                 return;
             }
             
             principal = (SpnegoPrincipal)session.getAttribute(ATTRIB_PRINCIPAL);
         }
         
+        final SpnegoHttpServletResponse spnegoResponse = new SpnegoHttpServletResponse(
+                (HttpServletResponse) response);
+
         if (principal == null)
         {
             session = httpRequest.getSession(true);
             
-            final SpnegoHttpServletResponse spnegoResponse = new SpnegoHttpServletResponse(
-                    (HttpServletResponse) response);
-    
-            // client/caller principal
             try {
                 principal = this.authenticator.authenticate(httpRequest, spnegoResponse);
                 
@@ -260,25 +313,24 @@ public class SpnegoHttpFilter implements Filter {
                     + httpRequest.getHeader(Constants.AUTHZ_HEADER));
                 throw new ServletException(gsse);
             }
-    
+
             // context/auth loop not yet complete
             if (spnegoResponse.isStatusSet()) {
                 //shows an empty page, if browser doesn't send another request!
                 return;
             }
-    
+
             // assert
             if (null == principal) {
                 if (bypass) {
                     LOGGER.fine("Bypass authentication");
 
                     session.setAttribute(ATTRIB_BYPASS, Boolean.TRUE);
-                    
+
                     chain.doFilter(request, response);
-                
+
                     return;
-                }
-                
+                }                
                 LOGGER.severe("Principal was null.");
                 spnegoResponse.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, true);
                 return;
@@ -286,8 +338,57 @@ public class SpnegoHttpFilter implements Filter {
         }
         
         LOGGER.fine("principal=" + principal);
+        
+        final SpnegoHttpServletRequest spnegoRequest = 
+                new SpnegoHttpServletRequest(httpRequest, principal, this.accessControl);
+                
+        // site wide authZ check (if enabled)
+        if (!isAuthorized((HttpServletRequest) spnegoRequest)) {
+            LOGGER.info("Principal Not AuthoriZed: " + principal);
+            if (this.page403.isEmpty()) {
+                spnegoResponse.setStatus(HttpServletResponse.SC_FORBIDDEN, true);  
+            } else {
+                request.getRequestDispatcher(this.page403).forward(spnegoRequest, response);
+            }
+            return;            
+        }
 
-        chain.doFilter(new SpnegoHttpServletRequest(httpRequest, principal), response);
+        chain.doFilter(spnegoRequest, response);
+    }
+    
+    private boolean isAuthorized(final HttpServletRequest request) {
+        if (null != this.sitewide && null != this.accessControl
+                && !this.accessControl.hasAccess(request.getRemoteUser(), this.sitewide)) {
+            return false;
+        }
+
+        return true;
+    }
+    
+    private boolean exclude(final String contextPath, final String servletPath) {
+        // each item in excludeDirs ends with a slash
+        final String path = contextPath + servletPath + (servletPath.endsWith("/") ? "" : "/");
+        
+        for (String dir : this.excludeDirs) {
+            if (path.startsWith(dir)) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    private static Properties toProperties(final FilterConfig filterConfig) {
+        final Properties props = new Properties();
+        @SuppressWarnings("unchecked")
+        final Enumeration<String> it = filterConfig.getInitParameterNames();
+        
+        while (it.hasMoreElements()) {
+            final String key = it.nextElement();
+            props.put(key, filterConfig.getInitParameter(key));
+        }
+        
+        return props;
     }
     
     /**
@@ -383,6 +484,22 @@ public class SpnegoHttpFilter implements Filter {
         public static final String CLIENT_MODULE = "spnego.login.client.module";
 
         /** 
+         * HTTP Request Header <b>Content-Type</b>. 
+         * 
+         */
+        public static final String CONTENT_TYPE = "Content-Type";
+        
+        /** 
+         * Servlet init param name in web.xml <b>spnego.exclude.dirs</b>.
+         * 
+         * <p>
+         * A List of URL paths, starting at the context root, 
+         * that should NOT undergo authentication (authN). 
+         * </p>
+         */
+        public static final String EXCLUDE_DIRS = "spnego.exclude.dirs";
+        
+        /** 
          * Servlet init param name in web.xml <b>spnego.krb5.conf</b>. 
          * 
          * <p>The location of the krb5.conf file. On Windows, this file will 
@@ -439,7 +556,7 @@ public class SpnegoHttpFilter implements Filter {
         /**
          * NTLM base64-encoded token start value.
          */
-        static final String NTLM_PROLOG = "TlRMTVNT";
+        public static final String NTLM_PROLOG = "TlRMTVNT";
         
         /** 
          * Servlet init param name in web.xml <b>spnego.preauth.password</b>. 
@@ -469,6 +586,12 @@ public class SpnegoHttpFilter implements Filter {
          * <p>The LoginModule name that exists in the login.conf file.</p>
          */
         public static final String SERVER_MODULE = "spnego.login.server.module";
+        
+        /** 
+         * HTTP Request Header <b>SOAPAction</b>. 
+         * 
+         */
+        public static final String SOAP_ACTION = "SOAPAction";
         
         /**
          * Servlet init param name in web.xml <b>spnego.bypass</b>.

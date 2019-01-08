@@ -25,7 +25,7 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.security.PrivilegedActionException;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -140,6 +140,13 @@ public final class SpnegoHttpURLConnection {
     private transient boolean connected = false;
 
     /**
+     * Default is set to false instead of true.
+     * 
+     * @see java.net.HttpURLConnection#getInstanceFollowRedirects()
+     */
+    private boolean instanceFollowRedirects = true;
+
+    /**
      * Default is GET.
      * 
      * @see java.net.HttpURLConnection#getRequestMethod()
@@ -191,6 +198,45 @@ public final class SpnegoHttpURLConnection {
      * Default is true.
      */
     private transient boolean autoDisposeCreds = true;
+    
+    /**
+     * Number of times request was redirected.
+     */
+    private transient int redirectCount = 0;
+
+    /**
+     * GSSContext request Mutual Authentication.
+     */
+    private transient boolean mutualAuth = true;
+    
+    /**
+     * GSSContext request Message Confidentiality.
+     * Default is true.
+     */
+    private transient boolean confidentiality = true;
+    
+    /**
+     * GSSContext request Message Integrity.
+     * Default is true.
+     */
+    private transient boolean messageIntegrity = true;
+    
+    /**
+     * GSSContext request Replay Detection.
+     * Default is true.
+     */
+    private transient boolean replayDetection = true;
+    
+    /**
+     * GSSContext request Sequence Detection.
+     * Default is true.
+     */
+    private transient boolean sequenceDetection = true;
+    
+    /**
+     * Number of times redirects will be allowed.
+     */
+    private static final int MAX_REDIRECTS = 20;
 
     /**
      * Creates an instance where the LoginContext relies on a keytab 
@@ -313,6 +359,12 @@ public final class SpnegoHttpURLConnection {
      */
     public HttpURLConnection connect(final URL url, final ByteArrayOutputStream dooutput)
         throws GSSException, PrivilegedActionException, IOException {
+        
+        // assert
+        if (!this.messageIntegrity && this.confidentiality) {
+            throw new IllegalStateException("Message Integrity was set "
+                    + "to false but Confidentiality set to true.");
+        }
 
         assertNotConnected();
 
@@ -327,11 +379,11 @@ public final class SpnegoHttpURLConnection {
                 try { Thread.sleep(31); } catch (InterruptedException e) { assert true; }
                 
                 context = this.getGSSContext(url);
-                context.requestMutualAuth(true);
-                context.requestConf(true);
-                context.requestInteg(true);
-                context.requestReplayDet(true);
-                context.requestSequenceDet(true);
+                context.requestMutualAuth(this.mutualAuth);
+                context.requestConf(this.confidentiality);
+                context.requestInteg(this.messageIntegrity);
+                context.requestReplayDet(this.replayDetection);
+                context.requestSequenceDet(this.sequenceDetection);
                 context.requestCredDeleg(this.reqCredDeleg);
                 
                 data = context.initSecContext(EMPTY_BYTE, 0, 0);
@@ -349,7 +401,6 @@ public final class SpnegoHttpURLConnection {
                 }
             }
 
-            // TODO : re-factor to support (302) redirects
             this.conn.setInstanceFollowRedirects(false);
             this.conn.setRequestMethod(this.requestMethod);
 
@@ -362,12 +413,24 @@ public final class SpnegoHttpURLConnection {
             }
 
             this.conn.connect();
+            
+            // redirect if 302
+            if (this.conn.getResponseCode() == HttpURLConnection.HTTP_MOVED_TEMP 
+                    && this.redirectCount < SpnegoHttpURLConnection.MAX_REDIRECTS) {
+                
+                return this.redirect(url, dooutput);
+            }
 
             final SpnegoAuthScheme scheme = SpnegoProvider.getAuthScheme(
                     this.conn.getHeaderField(Constants.AUTHN_HEADER));
             
             // app servers will not return a WWW-Authenticate on 302, (and 30x...?)
             if (null == scheme) {
+                LOGGER.fine("SpnegoProvider.getAuthScheme(...) returned null.");
+                
+            // client requesting to skip context loop if 200 and mutualAuth=false
+            } else if (this.conn.getResponseCode() == HttpURLConnection.HTTP_OK
+                    && !this.mutualAuth) {
                 LOGGER.fine("SpnegoProvider.getAuthScheme(...) returned null.");
                 
             } else {
@@ -430,8 +493,8 @@ public final class SpnegoHttpURLConnection {
         if (null != this.loginContext) {
             try {
                 this.loginContext.logout();
-            } catch (final LoginException le) {
-                LOGGER.log(Level.WARNING, "call to logout context failed.", le);
+            } catch (final LoginException lex) {
+                LOGGER.log(Level.WARNING, "call to logout context failed.", lex);
             }
         }
     }
@@ -483,9 +546,7 @@ public final class SpnegoHttpURLConnection {
         assertKeyValue(key, value);
 
         if (this.requestProperties.containsKey(key)) {
-            final List<String> val = this.requestProperties.get(key);
-            val.add(value);
-            this.requestProperties.put(key, val);            
+            this.requestProperties.get(key).add(value);
         } else {
             setRequestProperty(key, value);
         }
@@ -502,7 +563,10 @@ public final class SpnegoHttpURLConnection {
         assertNotConnected();
         assertKeyValue(key, value);
 
-        this.requestProperties.put(key, Arrays.asList(value));
+        final List<String> val = new ArrayList<String>();
+        val.add(value);
+        
+        this.requestProperties.put(key, val);
     }
     
     /**
@@ -582,6 +646,24 @@ public final class SpnegoHttpURLConnection {
     }
 
     /**
+     * @return true if it should follow redirects
+     * @see java.net.HttpURLConnection#getInstanceFollowRedirects()
+     */
+    public boolean getInstanceFollowRedirects() { // NOPMD
+        return this.instanceFollowRedirects;
+    }
+
+    /**
+     * @param followRedirects 
+     * @see java.net.HttpURLConnection#setInstanceFollowRedirects(boolean)
+     */
+    public void setInstanceFollowRedirects(final boolean followRedirects) {
+        assertNotConnected();
+
+        this.instanceFollowRedirects = followRedirects;
+    }
+
+    /**
      * Returns an input stream that reads from this open connection.
      * 
      * @return input stream that reads from this open connection
@@ -637,6 +719,45 @@ public final class SpnegoHttpURLConnection {
         return this.conn.getResponseMessage();
     }
     
+    private HttpURLConnection redirect(final URL url, final ByteArrayOutputStream dooutput)
+        throws GSSException, PrivilegedActionException, IOException {
+
+        this.redirectCount++;
+        final String location = this.getHeaderField("location");
+        assert !location.isEmpty();
+        
+        if (!instanceFollowRedirects && '/' != location.charAt(0)) {
+            final URL erl = new URL(location);
+            if (!url.getHost().equalsIgnoreCase(erl.getHost()) 
+                    || url.getPort() != erl.getPort()) {
+                
+                this.redirectCount = SpnegoHttpURLConnection.MAX_REDIRECTS;
+                return this.conn;                
+            }
+        } 
+
+        final List<String> cookies = 
+            this.conn.getHeaderFields().get("Set-Cookie");
+
+        this.conn.disconnect();
+        this.connected = false;
+
+        if (null != cookies) {
+            this.requestProperties.remove("Cookie");
+            for (String cookie : cookies) {
+                this.addRequestProperty("Cookie", cookie);
+            }
+        }
+
+        if ('/' == location.charAt(0)) {
+            final String[] str = url.toString().split("/");
+            final String newLocation = str[0] + "//" + str[2] + location;
+            return this.connect(new URL(newLocation), dooutput);
+        } else {
+            return this.connect(new URL(location), dooutput);
+        }
+    }
+    
     /**
      * Request that this GSSCredential be allowed for delegation.
      * 
@@ -647,7 +768,47 @@ public final class SpnegoHttpURLConnection {
         
         this.reqCredDeleg = requestDelegation;
     }
+    
+    /**
+     * Specify if GSSContext should request Confidentiality.
+     * Default is true.
+     * 
+     * @param confidential pass true for confidentiality
+     */
+    public void setConfidentiality(final boolean confidential) {
+        this.confidentiality = confidential;
+    }
 
+    /**
+     * Specify if GSSContext should request Message Integrity.
+     * Default is true.
+     * 
+     * @param integrity pass true for message integrity
+     */
+    public void setMessageIntegrity(final boolean integrity) {
+        this.messageIntegrity = integrity;
+    }
+
+    /**
+     * Specify if GSSContext should request Mutual Auth.
+     * Default is true.
+     * 
+     * @param mutual pass true for mutual authentication
+     */
+    public void setMutualAuth(final boolean mutual) {
+        this.mutualAuth = mutual;
+    }
+
+    /**
+     * Specify if if GSSContext should request should request Replay Detection.
+     * Default is true.
+     * 
+     * @param replay pass true for replay detection
+     */
+    public void setReplayDetection(final boolean replay) {
+        this.replayDetection = replay;
+    }
+    
     /**
      * May override the default GET method.
      * 
@@ -659,5 +820,15 @@ public final class SpnegoHttpURLConnection {
         assertNotConnected();
 
         this.requestMethod = method;
+    }
+    
+    /**
+     * Specify if if GSSContext should request Sequence Detection.
+     * Default is true.
+     * 
+     * @param sequence pass true for sequence detection
+     */
+    public void setSequenceDetection(final boolean sequence) {
+        this.sequenceDetection = sequence;
     }
 }
