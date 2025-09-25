@@ -139,7 +139,7 @@ public final class SpnegoPrincipal implements Principal {
     public int hashCode() {
         int result = 31;
         result = 31 * result + this.kerberosPrincipal.hashCode();
-        result = 31 * result + this.delegatedCred.hashCode();
+        result = 31 * result + (this.delegatedCred != null ? this.delegatedCred.hashCode() : 0);
         
         return result;
     }
@@ -155,9 +155,21 @@ public final class SpnegoPrincipal implements Principal {
         }
         
         final SpnegoPrincipal obj = (SpnegoPrincipal) object;
-        if (!this.kerberosPrincipal.equals(obj.kerberosPrincipal)
-                || !this.delegatedCred.equals(obj.delegatedCred)) {
-            
+        
+        if (!this.kerberosPrincipal.equals(obj.kerberosPrincipal)) 
+        {
+            return false;
+        }
+        
+        if (this.delegatedCred == null) 
+        {
+            if (obj.delegatedCred != null)
+            {
+                return false;
+            }
+        }
+        else if (!this.delegatedCred.equals(obj.delegatedCred)) 
+        {
             return false;
         }
         
