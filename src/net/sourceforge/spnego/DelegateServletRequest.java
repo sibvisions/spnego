@@ -49,7 +49,7 @@ import org.ietf.jgss.GSSCredential;
  * </p>
  * 
  * <p>
- * Java Application Servers can obtain the delegated credential by casting 
+ * Java Application Servers may obtain the delegated credential by casting 
  * the HTTP request.
  * </p>
  * 

@@ -19,6 +19,7 @@
 package net.sourceforge.spnego;
 
 import java.io.IOException;
+import java.util.HashMap;
 
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpServletResponseWrapper;
@@ -39,6 +40,8 @@ import javax.servlet.http.HttpServletResponseWrapper;
 public final class SpnegoHttpServletResponse extends HttpServletResponseWrapper {
 
     private transient boolean statusSet = false;
+    
+    private transient HashMap<String, String> headers = new HashMap<String, String>();
 
     /**
      * 
@@ -49,7 +52,7 @@ public final class SpnegoHttpServletResponse extends HttpServletResponseWrapper 
     }
 
     /**
-     * Tells if setStatus has been called.
+     * Indicates if setStatus has been called.
      * 
      * @return true if HTTP Status code has been set
      */
@@ -79,5 +82,27 @@ public final class SpnegoHttpServletResponse extends HttpServletResponseWrapper 
             setContentLength(0);
             flushBuffer();
         }
+    }
+    
+    /**
+     * Sets HTTP header and puts value to cache for later access.
+     * 
+     * @param name the header name
+     * @param value the value
+     */
+    public void setHeader(String name, String value) {
+        headers.put(name, value);
+        
+        super.setHeader(name, value);
+    }
+    
+    /**
+     * Gets cached response HTTP header value for given name.
+     * 
+     * @param name the header name
+     * @return the value or <code>null</code>
+     */
+    public String getHeader(String name) {
+        return headers.get(name);
     }
 }

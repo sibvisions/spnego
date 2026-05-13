@@ -18,6 +18,8 @@
 
 package net.sourceforge.spnego;
 
+import java.util.Base64;
+
 import net.sourceforge.spnego.SpnegoHttpFilter.Constants;
 
 /**
@@ -49,6 +51,9 @@ final class SpnegoAuthScheme {
     
     /** true if NTLM token. */
     private final transient boolean ntlm;
+    
+    /** the base64 decoder. */
+    private final Base64.Decoder decoder = Base64.getDecoder();
 
     /**
      * 
@@ -59,7 +64,7 @@ final class SpnegoAuthScheme {
         this.scheme = authScheme;
         this.token = authToken;
         
-        if (null == authToken || authToken.isEmpty()) {
+        if (Strings.isBlank(authToken)) {
             this.ntlm = false;
         } else {
             this.ntlm = authToken.startsWith(SpnegoHttpFilter.Constants.NTLM_PROLOG);
@@ -110,6 +115,6 @@ final class SpnegoAuthScheme {
      * @return copy of token
      */
     byte[] getToken() {
-        return (null == this.token) ? EMPTY_BYTE_ARRAY : Base64.decode(this.token);
+        return (null == this.token) ? EMPTY_BYTE_ARRAY : decoder.decode(this.token);
     }
 }

@@ -23,6 +23,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URI;
 import java.net.URL;
 import java.security.PrivilegedActionException;
 import java.util.ArrayList;
@@ -30,6 +32,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Base64;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
@@ -237,6 +240,9 @@ public final class SpnegoHttpURLConnection {
      * Number of times redirects will be allowed.
      */
     private static final int MAX_REDIRECTS = 20;
+    
+    /** the base64 encoder. */
+    private final Base64.Encoder encoder = Base64.getEncoder();
 
     /**
      * Creates an instance where the LoginContext relies on a keytab 
@@ -328,6 +334,31 @@ public final class SpnegoHttpURLConnection {
      * for the second argument.
      * </p>
      * 
+     * @param uri 
+     * @return an HttpURLConnection object
+     * @throws IOException 
+     * @throws PrivilegedActionException 
+     * @throws GSSException 
+     * @throws MalformedURLException 
+     * 
+     * @see java.net.URLConnection#connect()
+     */
+    public HttpURLConnection connect(final URI uri) 
+            throws MalformedURLException, GSSException, PrivilegedActionException, IOException {
+        
+        return this.connect(uri.toURL(), null);
+    }
+
+    /**
+     * Opens a communications link to the resource referenced by 
+     * this URL, if such a connection has not already been established.
+     * 
+     * <p>
+     * This implementation simply calls this objects 
+     * connect(URL, ByteArrayOutputStream) method but passing in a null 
+     * for the second argument.
+     * </p>
+     * 
      * @param url 
      * @return an HttpURLConnection object
      * @throws GSSException 
@@ -405,7 +436,7 @@ public final class SpnegoHttpURLConnection {
             this.conn.setRequestMethod(this.requestMethod);
 
             this.conn.setRequestProperty(Constants.AUTHZ_HEADER
-                , Constants.NEGOTIATE_HEADER + ' ' + Base64.encode(data));
+                , Constants.NEGOTIATE_HEADER + ' ' + encoder.encodeToString(data));
 
             if (null != dooutput && dooutput.size() > 0) {
                 this.conn.setDoOutput(true);
@@ -494,7 +525,16 @@ public final class SpnegoHttpURLConnection {
             try {
                 this.loginContext.logout();
             } catch (final LoginException lex) {
-                LOGGER.log(Level.WARNING, "call to logout context failed.", lex);
+                try {
+                    if (this.loginContext.getSubject().getPrivateCredentials().size() > 0 
+                            || this.loginContext.getSubject().getPublicCredentials().size() > 0) {
+                        LOGGER.log(Level.WARNING, "call to logout context failed.", lex);
+                    } else {
+                        LOGGER.log(Level.FINEST, "no Subject credentials found", lex);
+                    }
+                } catch (Exception e) {
+                    LOGGER.log(Level.INFO, "SpnegoHttpURLConnection::dispose " + e.getMessage());
+                }
             }
         }
     }
@@ -526,7 +566,7 @@ public final class SpnegoHttpURLConnection {
      * Internal sanity check to validate not null key/value pairs.
      */
     private void assertKeyValue(final String key, final String value) {
-        if (null == key || key.isEmpty()) {
+        if (Strings.isBlank(key)) {
             throw new IllegalArgumentException("key parameter is null or empty");
         }
         if (null == value) {
@@ -724,7 +764,7 @@ public final class SpnegoHttpURLConnection {
 
         this.redirectCount++;
         final String location = this.getHeaderField("location");
-        assert !location.isEmpty();
+        assert !Strings.isBlank(location);
         
         if (!instanceFollowRedirects && '/' != location.charAt(0)) {
             final URL erl = new URL(location);
@@ -749,13 +789,17 @@ public final class SpnegoHttpURLConnection {
             }
         }
 
+        final String[] str = url.toString().split("/");
+        final String newLocation;
         if ('/' == location.charAt(0)) {
-            final String[] str = url.toString().split("/");
-            final String newLocation = str[0] + "//" + str[2] + location;
-            return this.connect(new URL(newLocation), dooutput);
+            newLocation = str[0] + "//" + str[2] + location;
+        } else if (!location.startsWith("http")) {
+            newLocation = str[0] + "//" + str[2] + "/" + location;
         } else {
-            return this.connect(new URL(location), dooutput);
+            newLocation = location;
         }
+        
+        return this.connect(new URL(newLocation), dooutput);        
     }
     
     /**

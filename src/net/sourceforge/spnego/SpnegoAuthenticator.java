@@ -21,11 +21,11 @@ package net.sourceforge.spnego;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.security.Principal;
 import java.security.PrivilegedActionException;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.Map;
+import java.util.Base64;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
@@ -134,6 +134,10 @@ public final class SpnegoAuthenticator {
     
     /** Server Principal used for pre-authentication. */
     private final transient KerberosPrincipal serverPrincipal;
+    
+    /** the base64 encoder. */
+    private final Base64.Encoder encoder = Base64.getEncoder();
+
 
     /**
      * Create an authenticator for SPNEGO and/or BASIC authentication.
@@ -230,9 +234,8 @@ public final class SpnegoAuthenticator {
                 return map.get(param);
             }
 
-            @SuppressWarnings("rawtypes")
             @Override
-            public Enumeration getInitParameterNames() {
+            public Enumeration<String> getInitParameterNames() {
                 throw new UnsupportedOperationException();
             }
 
@@ -269,7 +272,7 @@ public final class SpnegoAuthenticator {
         this.bypassAuthentication = config.isBypassAuthentication(); 
 
         final String username = config.getPreauthUsername();
-        final boolean hasUsername = null != username && !username.trim().isEmpty();
+        final boolean hasUsername = !Strings.isBlank(username);
         
         if (hasUsername) {
             this.loginContext = new LoginContext(loginModuleName
@@ -366,7 +369,7 @@ public final class SpnegoAuthenticator {
      * also logout when we are done using this object.
      * 
      * <p>
-     * Generally, instantiators of this class should be the only to call 
+     * Generally, instantiators of this class should be the only object/class to call 
      * dispose() as it indicates that this class will no longer be used.
      * </p>
      */
@@ -426,7 +429,7 @@ public final class SpnegoAuthenticator {
         
         try {
             // assert
-            if (null == username || username.isEmpty()) {
+            if (Strings.isBlank(username)) {
                 throw new LoginException("Username is required.");
             }
 
@@ -434,26 +437,12 @@ public final class SpnegoAuthenticator {
 
             // validate username/password by login/logout  
             cntxt.login();
+            cntxt.logout();            
 
-            try 
-            {
-                for (Principal cntxPrincipal : cntxt.getSubject().getPrincipals()) {
-                    if (cntxPrincipal instanceof KerberosPrincipal) {
-                        principal = new SpnegoPrincipal((KerberosPrincipal)cntxPrincipal, KerberosPrincipal.KRB_NT_PRINCIPAL);
-                        break;
-                    }
-                }
-                
-                if (principal == null) {
-                    principal = new SpnegoPrincipal(username, KerberosPrincipal.KRB_NT_PRINCIPAL);
-                    //principal = new SpnegoPrincipal(username + '@' + this.serverPrincipal.getRealm(), KerberosPrincipal.KRB_NT_PRINCIPAL);
-                }
-            }
-            finally
-            {
-                cntxt.logout();
-            }            
-
+            principal = new SpnegoPrincipal(username + '@' 
+                    + this.serverPrincipal.getRealm()
+                    , KerberosPrincipal.KRB_NT_PRINCIPAL);
+            
         } catch (LoginException lex) {
             LOGGER.fine(lex.getMessage() + ": Login failed. username=" + username);
 
@@ -470,7 +459,7 @@ public final class SpnegoAuthenticator {
     private SpnegoPrincipal doLocalhost() {
         final String username = System.getProperty("user.name");
         
-        if (null == username || username.isEmpty()) {
+        if (Strings.isBlank(username)) {
             return new SpnegoPrincipal(this.serverPrincipal.getName() + '@' 
                     + this.serverPrincipal.getRealm()
                     , this.serverPrincipal.getNameType());            
@@ -530,7 +519,7 @@ public final class SpnegoAuthenticator {
                 return null;
             }
 
-            resp.setHeader(Constants.AUTHN_HEADER, Constants.NEGOTIATE_HEADER + " " + Base64.encode(token));
+            resp.setHeader(Constants.AUTHN_HEADER, Constants.NEGOTIATE_HEADER + " " + encoder.encodeToString(token));
 
             if (!context.isEstablished()) {
                 LOGGER.fine("context not established");
@@ -580,7 +569,8 @@ public final class SpnegoAuthenticator {
      * @return true if HTTP request is from the same host (localhost)
      */
     private boolean isLocalhost(final HttpServletRequest req) {
-        boolean isLocal = req.getLocalAddr().equals(req.getRemoteAddr());
+        final String localAddr = req.getLocalAddr();
+        boolean isLocal = (null != localAddr) ? localAddr.equals(req.getRemoteAddr()) : false;
         
         if (!isLocal && "0.0.0.0".equals(req.getLocalAddr()) // NOPMD
                 && "0:0:0:0:0:0:0:1".equals(req.getRemoteAddr())) { // NOPMD

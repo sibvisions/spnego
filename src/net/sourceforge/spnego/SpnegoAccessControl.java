@@ -64,18 +64,34 @@ package net.sourceforge.spnego;
  * <p>
  * <b>Attribute Set Example Scenario:</b><br />
  * This example will assume Active Directory (AD) as the data store for user information. 
- * It also assumes that in AD there are three AD Groups named <code>File Share Access</code>, 
+ * This example also assumes that in AD there are three AD Groups named <code>File Share Access</code>, 
  * <code>Finance London</code>, and <code>Desktop Support</code>. Finally, we assume
  * that the department attribute in AD's user profile is populated 
- * for each user. Example values in the department attribute set might be 
+ * for each user. Example values in the Departments attribute set might be 
  * <code>IT</code>, <code>Accounting</code>, or <code>HR</code>. Under this scenario, 
- * AD Group would be one attribute set and department would be another attribute set. 
+ * AD Groups would be one attribute set and Departments would be another attribute set. 
+ * </p>
+ * 
+ * <p>
+ * Here's another way of illustrating the concepts from the above example scenario 
+ * (this is NOT example code but instead is only meant to be illustrative of the mental model).
+ * 
+ * <pre>
+ * // this is not code and not even pseudo-code... the only purpose is to help depict a mental model
+ * final Map&lt;String, List&lt;String&gt;&gt; attributeSet = new HashMap&lt;&gt;();
+ * 
+ * attributeSet.put("AD Groups"
+ *         , Arrays.asList(new String [] {"File_Share_Access", "Finance_London", "Desktop_Support"}));
+ * 
+ * attributeSet.put("Departments"
+ *         , Arrays.asList(new String [] {"IT", "Accounting", "HR"}));
+ * </pre>
  * </p>
  * 
  * <p>
  * Notice that you concretely assign an attribute (e.g. <code>Accounting</code>) to a 
- * user but you can't assign an attribute set (e.g. department to a user). For example, 
- * the attribute set department contains many attributes within it: <code>IT</code>, 
+ * user instead of assigning an attribute set (e.g. Departments to a user). The reason being 
+ * is that the the attribute set Departments contains many attributes within it: <code>IT</code>, 
  * <code>Accounting</code>, and <code>HR</code>. 
  * </p>
  * 
@@ -105,7 +121,7 @@ package net.sourceforge.spnego;
  * </p>
  * 
  * <p>
- * <b>Example Usage 2:</b></br />
+ * <b>Example Usage 2:</b>
  * Certain areas of a web application/service must only be accessed by users who are 
  * in the AD Group <code>File Share Access</code> AND who are in the AD Group 
  * <code>Finance London</code> or who are in the <code>Accounting</code> department.
@@ -159,9 +175,9 @@ package net.sourceforge.spnego;
  * <b>The Java HttpServletRequest Interface and it's isUserInRole method</b>
  * </p>
  * <p>
- * In addition to how the {@link javax.servlet.http.HttpServletRequest} interface 
+ * In addition to how the {@link jakarta.servlet.http.HttpServletRequest} interface 
  * defines a <code>getRemoteUser</code> method to retrieve the name of the authenticated 
- * (authN) user, the {@link javax.servlet.http.HttpServletRequest} interface also defines 
+ * (authN) user, the {@link jakarta.servlet.http.HttpServletRequest} interface also defines 
  * an <code>isUserInRole</code> method that  
  * "<i>returns a boolean indicating whether the authenticated user is included in the 
  * specified logical 'role'</i>". In all of the examples above, a Java Cast was 

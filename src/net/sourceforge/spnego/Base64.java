@@ -18,6 +18,7 @@
 
 package net.sourceforge.spnego;
 
+@Deprecated
 public final class Base64 {
 
     private static final String ALPHABET =
@@ -34,6 +35,7 @@ public final class Base64 {
      * @param bytes The block of data that is to be Base-64 encoded.
      * @return A <code>String</code> containing the encoded data.
      */
+    @Deprecated
     public static String encode(final byte[] bytes) {
         int length = bytes.length;
         
@@ -79,6 +81,7 @@ public final class Base64 {
      * @param string The Base-64 encoded string that is to be decoded.
      * @return A <code>byte[]</code> containing the decoded data block.
      */
+    @Deprecated
     public static byte[] decode(final String string) {
         final int length = string.length();
         if (length == 0) {

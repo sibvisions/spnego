@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.net.URL;
 import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
+import java.util.Enumeration;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -148,8 +149,14 @@ public final class SpnegoProvider {
                 // TODO : decode/decrypt NTLM token and return a new SpnegoAuthScheme
                 // of type "Basic" where the token value is a base64 encoded
                 // username + ":" + password string
+                final Enumeration<String> iter = req.getHeaderNames();
+                while (iter.hasMoreElements()) {
+                    final String header = iter.nextElement();
+                    LOGGER.severe(String.format("%1$s: %2$s", header, req.getHeader(header)));
+                }
+                
                 throw new UnsupportedOperationException("NTLM specified. Downgraded to " 
-                        + "Basic Auth (and/or SSL) but downgrade not supported.");
+                        + "Basic Auth (andSSL) but downgrade not supported/allowed.");
             }
             
             resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED, true);
@@ -217,11 +224,11 @@ public final class SpnegoProvider {
      */
     public static SpnegoAuthScheme getAuthScheme(final String header) {
 
-        if (null == header || header.isEmpty()) {
-            LOGGER.finer("authorization header was missing/null");
+        if (Strings.isBlank(header)) {
+            LOGGER.fine("authorization header was missing/null");
             return null;
             
-        }
+        }        
 
         final SpnegoAuthScheme scheme = parseAuthHeader(header, Constants.NEGOTIATE_HEADER);
         if (scheme != null) {
@@ -233,8 +240,7 @@ public final class SpnegoProvider {
             return basicScheme;
         }
 
-        LOGGER.fine("Unsupported authorization scheme in header (length: " + header.length() + ")");
-        throw new UnsupportedOperationException("Negotiate or Basic Only");    
+        throw new UnsupportedOperationException("Negotiate or Basic Only: " + header);    
     }
 
     /**
@@ -245,34 +251,18 @@ public final class SpnegoProvider {
      * @return SpnegoAuthScheme if valid, null otherwise
      */
     private static SpnegoAuthScheme parseAuthHeader(final String header, final String scheme) {
-        final int schemeLength = scheme.length();
-
-        // Case-insensitive scheme matching
-        if (header.length() < schemeLength ||
-            !header.regionMatches(true, 0, scheme, 0, schemeLength)) {
-            return null;
+        if (header.startsWith(scheme)) {
+            if (header.length() > scheme.length() + 1) {
+                
+                String token = header.substring(scheme.length() + 1);
+                
+                if (!Strings.isBlank(token)) {
+                    return new SpnegoAuthScheme(scheme, token);
+                }
+            }
         }
-
-        // Skip whitespace after scheme
-        int i = schemeLength;
-        while (i < header.length() && Character.isWhitespace(header.charAt(i))) {
-            i++;
-        }
-
-        // Ensure there's a token after whitespace
-        if (i >= header.length()) {
-            LOGGER.fine("Invalid " + scheme + " header: missing token");
-            return null;
-        }
-
-        // Extract and trim token
-        final String token = header.substring(i).trim();
-        if (token.isEmpty()) {
-            LOGGER.fine("Invalid " + scheme + " header: empty token");
-            return null;
-        }
-
-        return new SpnegoAuthScheme(scheme, token);
+        
+        return null;
     }    
     
     /**

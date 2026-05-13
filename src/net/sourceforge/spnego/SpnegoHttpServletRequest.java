@@ -101,7 +101,7 @@ final class SpnegoHttpServletRequest extends HttpServletRequestWrapper
         
         return super.getAuthType();
     }
-    
+      
     /*
      * (non-Javadoc)
      * @see net.sourceforge.spnego.DelegateServletRequest#getDelegatedCredential()
@@ -123,7 +123,7 @@ final class SpnegoHttpServletRequest extends HttpServletRequestWrapper
             return super.getRemoteUser();
             
         } else {
-            return principal.getUserName();
+            return this.principal.getUserName();
         }
     }
     

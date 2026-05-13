@@ -55,18 +55,6 @@ public final class SpnegoPrincipal implements Principal {
     }
     
     /**
-     * Constructs a SpnegoPrincipal from the provided String kerberos principal
-     * and name type input.
-     * 
-     * @param name the principal name
-     * @param nameType the name type of the principal
-     */
-    public SpnegoPrincipal(final KerberosPrincipal kerberosPrincipal, final int nameType) {
-        this.kerberosPrincipal = kerberosPrincipal;
-        this.delegatedCred = null;
-    }
-    
-    /**
      * Constructs a SpnegoPrincipal from the provided String input 
      * and name type input.
      * 
@@ -139,7 +127,7 @@ public final class SpnegoPrincipal implements Principal {
     public int hashCode() {
         int result = 31;
         result = 31 * result + this.kerberosPrincipal.hashCode();
-        result = 31 * result + (this.delegatedCred != null ? this.delegatedCred.hashCode() : 0);
+        result = 31 * result + ((null == this.delegatedCred) ? 1 : this.delegatedCred.hashCode());
         
         return result;
     }

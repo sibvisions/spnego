@@ -35,7 +35,7 @@ import java.util.Properties;
  * implementing object is free to aggregate information from multiple 
  * sources (ie. LDAP Server, RDBMS, etc.). Data retrieval such as 
  * roles, groups, attributes, resources, user information etc. is 
- * defined by the implementing object. Since it is assumed that the 
+ * defined by the implementing object. Since it is assumed that the
  * given store is a shared resource, the implementing object must take 
  * care of synchronizing access to any shared resource. This interface 
  * does not define, specify or suggest synchronization semantics. 
@@ -159,7 +159,7 @@ import java.util.Properties;
  * </p>
  * 
  * <p>
- * <b>Example Usage 4:</b></br />
+ * <b>Example Usage 4:</b>
  * The ticketing system is nearing maturity and it has been determined that only 
  * Biz. Analysts from the IT Group (i.e. policy statement A) or 
  * any Biz. Analyst out of the Los Angeles office (i.e. policy statement B) 
@@ -236,15 +236,15 @@ import java.util.Properties;
  * &lt;init-param&gt;
  *     &lt;param-name&gt;spnego.authz.ldap.filter.1&lt;/param-name&gt;
  *      &lt;param-value&gt;
- *      &lt;![CDATA[(&(sAMAccountName=%1$s)
- *      (memberOf:1.2.840.113556.1.4.1941:=CN=%2$s,OU=Groups,OU=Los Angeles,DC=athena,DC=local)(!(&(sAMAccountType=805306368)(department=%2$s))))]]&gt;
+ *      &lt;![CDATA[(&mp;(sAMAccountName=%1$s)
+ *      (memberOf:1.2.840.113556.1.4.1941:=CN=%2$s,OU=Groups,OU=Los Angeles,DC=athena,DC=local)(!(&amp;(sAMAccountType=805306368)(department=%2$s))))]]&gt;
  *      &lt;/param-value&gt;
  * &lt;/init-param&gt;
  * &lt;!-- Department --&gt;
  * &lt;init-param&gt;
  *     &lt;param-name&gt;spnego.authz.ldap.filter.2&lt;/param-name&gt;
  *     &lt;param-value&gt;
- *     &lt;![CDATA[(&(sAMAccountType=805306368)(sAMAccountName=%1$s)(&(sAMAccountType=805306368)(department=%2$s)))]]&gt;
+ *     &lt;![CDATA[(&amp;(sAMAccountType=805306368)(sAMAccountName=%1$s)(&amp;(sAMAccountType=805306368)(department=%2$s)))]]&gt;
  *     &lt;/param-value&gt;
  * &lt;/init-param&gt;
  * <i>filter must all be on one line. wrapped here for compactness.</i><br/>
@@ -318,7 +318,7 @@ import java.util.Properties;
  * 
  * <p>
  * In the above example, the attribute(s) that support the policy is abstracted by the 
- * user-defined resource label named admin-buttons. Concretely, the resource label 
+ * user-defined resource label named admin-buttons. Concretely, the resource label named
  * admin-buttons could have been assigned the attributes IT Group, Biz. Analyst, and Developer.
  * </p>
  * 

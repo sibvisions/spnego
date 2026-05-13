@@ -20,7 +20,7 @@
   <property name="jar.name.app" value="${product.name}_app.jar" />
   <property name="jar.name.analyzer" value="analyzer.jar" />
 	
-  <property name="jar.version" value="r9p1" />
+  <property name="jar.version" value="r11p1" />
 
   <!-- 
   	***************************************************************** 
@@ -116,7 +116,7 @@
     <mkdir dir="${classes}" />
 
     <!-- compile the java code -->
-    <javac srcdir="${src}" destdir="${classes}" debug="on" deprecation="on" source="1.5" target="1.5" encoding="ISO-8859-1">
+    <javac srcdir="${src}" destdir="${classes}" debug="on" deprecation="on" source="1.8" target="1.8" encoding="ISO-8859-15">
       <classpath>
         <fileset dir="${libs}">
           <include name="*.jar" />
@@ -149,6 +149,8 @@
       
       <fileset dir="${classes}" />
     </jar>
+  	
+  	<copy file="${install}/${jar.name}" tofile="C:/tools/eclipse_workspace/NTLMAuth/libs/server/spnego.jar" />
 
   </target>
   
@@ -171,8 +173,8 @@
              version="false" 
              use="true" 
              windowtitle="SPNEGO Authentication (ver. ${build.version})"
-             source="1.5" 
-             encoding="ISO-8859-1">
+             source="1.8" 
+             encoding="ISO-8859-15">
       <arg value="-J-Dhttp.proxyHost=${proxy.host}"/>
       <arg value="-J-Dhttp.proxyPort=${proxy.port}"/>
       <arg value="-J-Dhttp.proxyUser=${proxy.user}"/>

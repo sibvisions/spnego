@@ -39,7 +39,7 @@ import net.sourceforge.spnego.SpnegoHttpFilter.Constants;
  * Class that applies/enforces web.xml init params.
  * 
  * <p>These properties are set in the servlet's init params 
- * in the web.xml file.</>
+ * in the web.xml file.</p>
  * 
  * <p>This class also validates if a keyTab should be used 
  * and if all of the LoginModule options have been set.</p>
@@ -291,7 +291,7 @@ public final class SpnegoFilterConfig { // NOPMD
      * @return a List of directories to exclude
      */
     List<String> getExcludeDirs() {
-        if (null == this.excludeDirs || this.excludeDirs.isEmpty()) {
+        if (Strings.isBlank(excludeDirs)) {
             return Collections.emptyList();
         } else {
             return SpnegoFilterConfig.split(this.excludeDirs);
@@ -396,7 +396,7 @@ public final class SpnegoFilterConfig { // NOPMD
         throws FileNotFoundException, URISyntaxException {
 
         // confirm login.conf file exists
-        if (null == loginconf || loginconf.isEmpty()) {
+        if (Strings.isBlank(loginconf)) {
             throw new FileNotFoundException("Must provide a login.conf file.");
         } else {
             final File file = new File(new URI(loginconf));
@@ -551,7 +551,7 @@ public final class SpnegoFilterConfig { // NOPMD
             this.password = psswrd;
         }
         
-        if (this.username.isEmpty() || this.password.isEmpty()) {
+        if (Strings.isBlank(username) || Strings.isBlank(this.password)) {
             mustUseKtab = true;
         }
 
@@ -567,7 +567,7 @@ public final class SpnegoFilterConfig { // NOPMD
      * @return true if LoginContext should use keyTab.
      */
     boolean useKeyTab() {
-        return this.canUseKeyTab && this.username.isEmpty() && this.password.isEmpty();
+        return this.canUseKeyTab && Strings.isBlank(this.username) && Strings.isBlank(this.password);
     }
     
     /**

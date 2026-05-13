@@ -63,7 +63,7 @@ import javax.naming.ldap.LdapContext;
  * The <code>LdapAccessControl</code> implementation makes calls to an 
  * LDAP server (e.g. Microsoft's Active Directory (AD) server) when performing 
  * a lookup to determine if a user has one or more attributes defined. The 
- * LDAP queries are based on LDAP search/fiter criteria(s) defined at the time  
+ * LDAP queries are based on LDAP search/filter criteria(s) defined at the time  
  * an instance of this class is placed into service. An instance of this class 
  * is considered to be in service after invoking the <code>init</code> method. 
  * </p>
@@ -78,9 +78,9 @@ import javax.naming.ldap.LdapContext;
  * </p>
  * 
  * <p>
- * Authorization (authZ) is an optional feature of the SPNEGO Library. The SPNEGO 
+ * Authorization (authZ) is an <b>optional feature</b> of the SPNEGO Library. The SPNEGO 
  * Library provides an interface, {@link SpnegoAccessControl}, to applications 
- * that need authZ capability. Applications can check a user's authZ by calling 
+ * that require authZ capability. Applications can check a user's authZ by calling 
  * methods defined in the <code>SpnegoAccessControl</code> interface.
  * </p>
  * 
@@ -563,10 +563,10 @@ public class LdapAccessControl implements UserAccessControl {
     /**
      * Returns a user info object if specified in  web.xml or the spnego.policy file.
      * 
-     * <p>Case-sensitive</br>
+     * <p>Case-sensitive</p>
      * 
      * <p>
-     * <b>web.xml Example:</b></br />
+     * <b>web.xml Example:</b>
      * <pre>
      *     ...
      *     &lt;init-param&gt;
@@ -638,7 +638,7 @@ public class LdapAccessControl implements UserAccessControl {
         
         final String policyFile = props.getProperty(POLICY_FILE, "");
         final Properties policies = new Properties();
-        if (!policyFile.isEmpty()) {
+        if (!Strings.isBlank(policyFile)) {
             try {
                 LOGGER.info("policy file: " + policyFile);
                 final FileInputStream fis =new FileInputStream(policyFile);
@@ -671,10 +671,10 @@ public class LdapAccessControl implements UserAccessControl {
         // if deecee was not provided, calculate using server's realm
         String dc = policies.getProperty(LDAP_DEECE
                 , props.getProperty(LDAP_DEECE, ""));
-        if (dc.isEmpty()) {
+        if (Strings.isBlank(dc)) {
             final String tmp = props.getProperty(SERVER_REALM
                     , policies.getProperty(SERVER_REALM, ""));
-            if (tmp.trim().isEmpty()) {
+            if (Strings.isBlank(tmp)) {
                 throw new IllegalArgumentException("MUST provide the serve's deecee. "
                         + " specify a value for the " + LDAP_DEECE + " property.");
             }
@@ -683,7 +683,7 @@ public class LdapAccessControl implements UserAccessControl {
         LOGGER.info(dc);
         
         // assert that an ldap url was provided
-        if (policies.getProperty(LDAP_URL, props.getProperty(LDAP_URL, "")).isEmpty()) {
+        if (Strings.isBlank(policies.getProperty(LDAP_URL, props.getProperty(LDAP_URL, "")))) {
             final String errorMessage = "Must provide a value for the spnego.authz.ldap.url parameter";
             LOGGER.severe(errorMessage);
             throw new IllegalStateException(errorMessage);
@@ -695,14 +695,14 @@ public class LdapAccessControl implements UserAccessControl {
 
         // if username/password not provided, default to krb5 username/password
         // if nothing is specified because a keytab file was specified... error.
-        if (policies.getProperty(LDAP_USERNAME, props.getProperty(LDAP_USERNAME
-                , props.getProperty(KRB5_USERNAME, policies.getProperty(KRB5_USERNAME, "")))).isEmpty()) {
+        if (Strings.isBlank(policies.getProperty(LDAP_USERNAME, props.getProperty(LDAP_USERNAME
+                , props.getProperty(KRB5_USERNAME, policies.getProperty(KRB5_USERNAME, "")))))) {
             final String errorMessage = "Must provide a username to use for connecting to the LDAP server";
             LOGGER.severe(errorMessage);
             throw new IllegalArgumentException(errorMessage);
         }
-        if (policies.getProperty(LDAP_PASSWORD, props.getProperty(LDAP_PASSWORD
-            , props.getProperty(KRB5_PASSWORD, policies.getProperty(KRB5_PASSWORD, "")))).isEmpty()) {
+        if (Strings.isBlank(policies.getProperty(LDAP_PASSWORD, props.getProperty(LDAP_PASSWORD
+            , props.getProperty(KRB5_PASSWORD, policies.getProperty(KRB5_PASSWORD, "")))))) {
             final String errorMessage = "Must provide a password to use for connecting to the LDAP server";
             LOGGER.severe(errorMessage);
             throw new IllegalArgumentException(errorMessage);
@@ -810,7 +810,7 @@ public class LdapAccessControl implements UserAccessControl {
                 final String errorMessage = "Over the max number of filters allowed: " + i;
                 LOGGER.severe(errorMessage);
                 throw new IllegalArgumentException(errorMessage);
-            } else if (filter.isEmpty()) {
+            } else if (Strings.isBlank(filter)) {
                 break;
             }
             this.policy.add(filter);
@@ -862,10 +862,10 @@ public class LdapAccessControl implements UserAccessControl {
     private UserInfo cacheUserInfo(final String username) throws NamingException {
         
         if (null == this.userInfoFilter 
-                || this.userInfoFilter.isEmpty() 
+                || Strings.isBlank(this.userInfoFilter) 
                 || this.userInfoLabels.size() == 0) {
-            LOGGER.info(USER_INFO_FILTER + " was empty OR no value(s) specified for the "  
-                    + USER_INFO +" property");
+            LOGGER.fine(USER_INFO_FILTER + " was empty OR no value(s) specified for the "  
+                      + USER_INFO +" property");
             return null;
         }
 
@@ -880,7 +880,7 @@ public class LdapAccessControl implements UserAccessControl {
         final Map<String, List<String>> labelInfo = new HashMap<String, List<String>>();
         while (results.hasMoreElements()) {
             found = true;
-            final SearchResult result = (SearchResult) results.nextElement();
+            final SearchResult result = results.nextElement();
             final Attributes attributes = result.getAttributes();
             for (@SuppressWarnings("rawtypes")
                 NamingEnumeration iter = attributes.getAll(); iter.hasMore();) {
