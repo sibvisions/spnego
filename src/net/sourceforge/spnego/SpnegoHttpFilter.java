@@ -556,14 +556,14 @@ public class SpnegoHttpFilter implements Filter {
          * </pre>
          * 
          */
-        static final String LOGGER_LEVEL = "spnego.logger.level";
+        public static final String LOGGER_LEVEL = "spnego.logger.level";
         
         /**
          * Name of Spnego Logger.
          * 
          * <p>Example: <code>Logger.getLogger(Constants.LOGGER_NAME)</code></p>
          */
-        static final String LOGGER_NAME = "SpnegoHttpFilter"; 
+        public static final String LOGGER_NAME = "SpnegoHttpFilter"; 
         
         /** 
          * Servlet init param name in web.xml <b>spnego.login.conf</b>. 
