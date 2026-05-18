@@ -437,7 +437,7 @@ public final class SpnegoAuthenticator {
 
             // validate username/password by login/logout  
             cntxt.login();
-            cntxt.logout();            
+            cntxt.logout();   
 
             principal = new SpnegoPrincipal(username + '@' 
                     + this.serverPrincipal.getRealm()
@@ -543,7 +543,6 @@ public final class SpnegoAuthenticator {
             if (this.allowDelegation && context.getCredDelegState()) {
                 delegCred = context.getDelegCred();
             }
-
         } finally {
             if (null != context) {
                 SpnegoAuthenticator.LOCK.lock();
@@ -587,7 +586,7 @@ public final class SpnegoAuthenticator {
      */
     SpnegoFilterConfig getConfig()
     {
-        return config;
+        return this.config;
     }
     
 }

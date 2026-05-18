@@ -29,7 +29,7 @@ import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-
+import javax.security.auth.login.LoginContext;
 import javax.security.auth.login.LoginException;
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
@@ -317,9 +317,21 @@ public class SpnegoHttpFilter implements Filter {
                     {  
                         try
                         {
+                            SpnegoFilterConfig cfg = authenticator.getConfig();
+                            
+                            LoginContext lctxt = null;
+                            
+                            if (cfg.useKeyTab()) {
+                                lctxt = new LoginContext(cfg.getServerLoginModule());
+                            } else {
+                                lctxt = new LoginContext(cfg.getServerLoginModule(), 
+                                        SpnegoProvider.getUsernamePasswordHandler(cfg.getPreauthUsername(), cfg.getPreauthPassword()));            
+                            }    
+
                             session.setAttribute(ATTRIB_AUTH, 
-                                                 new String[] {httpRequest.getHeader("Authorization").substring(10), 
-                                                               authenticator.getConfig().getPreauthUsername(), authenticator.getConfig().getPreauthPassword()});
+                                                 new Object[] {httpRequest.getHeader("Authorization").substring(10), 
+                                                               lctxt,
+                                                               cfg.getPreauthUsername(), cfg.getPreauthPassword()});
                         }
                         catch (Exception e)
                         {
